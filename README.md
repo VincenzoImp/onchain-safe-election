@@ -1,80 +1,282 @@
-# 🏗 Scaffold-ETH 2
+# 🗳️ University Election DApp
 
 <h4 align="center">
-  <a href="https://docs.scaffoldeth.io">Documentation</a> |
-  <a href="https://scaffoldeth.io">Website</a>
+  <a href="#features">Features</a> |
+  <a href="#architecture">Architecture</a> |
+  <a href="#getting-started">Getting Started</a> |
+  <a href="#usage">Usage</a>
 </h4>
 
-🧪 An open-source, up-to-date toolkit for building decentralized applications (dapps) on the Ethereum blockchain. It's designed to make it easier for developers to create and deploy smart contracts and build user interfaces that interact with those contracts.
+🎓 A decentralized application (DApp) for managing university elections and professor enrollment built on Ethereum blockchain. This system enables universities to participate in transparent, secure elections while managing professor enrollments with smart contract-enforced rules.
 
-⚙️ Built using NextJS, RainbowKit, Hardhat, Wagmi, Viem, and Typescript.
+⚡ Built on **Scaffold-ETH 2** framework using Next.js, RainbowKit, Hardhat, Wagmi, Viem, and TypeScript.
 
-- ✅ **Contract Hot Reload**: Your frontend auto-adapts to your smart contract as you edit it.
-- 🪝 **[Custom hooks](https://docs.scaffoldeth.io/hooks/)**: Collection of React hooks wrapper around [wagmi](https://wagmi.sh/) to simplify interactions with smart contracts with typescript autocompletion.
-- 🧱 [**Components**](https://docs.scaffoldeth.io/components/): Collection of common web3 components to quickly build your frontend.
-- 🔥 **Burner Wallet & Local Faucet**: Quickly test your application with a burner wallet and local faucet.
-- 🔐 **Integration with Wallet Providers**: Connect to different wallet providers and interact with the Ethereum network.
+![University Election DApp](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
 
-![Debug Contracts tab](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
+## 🌟 Features
 
-## Requirements
+### 🏛️ University Management
+- **University Registration**: Three pre-registered universities with hardcoded addresses
+- **Professor Enrollment**: Universities can enroll professors with a 10 wei fee
+- **Capacity Management**: Maximum 30 professors per university
+- **Fee Distribution**: Enrollment fees are automatically transferred to universities
 
-Before you begin, you need to install the following tools:
+### 🗳️ Election System
+- **Election Lifecycle**: Universities can start elections with a 100 wei fee
+- **Voting Mechanism**: Encrypted voting system with JSON-based vote structure
+- **Election Status**: Three states - NO_ELECTION, IN_PROGRESS, CLOSED
+- **Time-based Elections**: Elections run for 1000 blocks (configurable)
+- **Quorum Requirements**: Requires majority participation for valid elections
 
-- [Node (>= v20.18.3)](https://nodejs.org/en/download/)
-- Yarn ([v1](https://classic.yarnpkg.com/en/docs/install/) or [v2+](https://yarnpkg.com/getting-started/install))
+### 🔐 Security & Transparency
+- **Smart Contract Enforcement**: All rules enforced at blockchain level
+- **Transparent Voting**: Immutable vote records on blockchain
+- **Access Control**: Only registered universities can participate
+- **Fee Management**: Automatic fee handling and refunds
+
+### 🛠️ Development Tools
+- **Contract Hot Reload**: Frontend auto-adapts to smart contract changes
+- **Custom Hooks**: TypeScript-enabled React hooks for contract interactions
+- **Debug Interface**: Built-in contract debugging and testing tools
+- **Block Explorer**: Integrated blockchain explorer for transaction tracking
+
+## 🏗️ Architecture
+
+### Smart Contract Structure
+```
+YourContract.sol
+├── University Management
+│   ├── universityProfessors (mapping)
+│   ├── isUniversity (mapping)
+│   └── professorToUniversity (mapping)
+├── Election System
+│   ├── votesMap (mapping)
+│   ├── hasVoted (mapping)
+│   └── VOTE_STATUS (enum)
+└── Fee Management
+    ├── ENROLLMENT_FEE (10 wei)
+    └── ELECTION_START_FEE (100 wei)
+```
+
+### Frontend Architecture
+```
+packages/nextjs/
+├── app/
+│   ├── page.tsx (Main voting interface)
+│   ├── debug/ (Contract debugging tools)
+│   └── blockexplorer/ (Blockchain explorer)
+├── components/scaffold-eth/ (Reusable Web3 components)
+├── hooks/scaffold-eth/ (Custom contract interaction hooks)
+└── contracts/ (Auto-generated contract interfaces)
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+- [Node.js (>= v18.18)](https://nodejs.org/en/download/)
+- [Yarn](https://classic.yarnpkg.com/en/docs/install/) (v1 or v2+)
 - [Git](https://git-scm.com/downloads)
+- MetaMask or compatible Web3 wallet
 
-## Quickstart
+### Installation
 
-To get started with Scaffold-ETH 2, follow the steps below:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/university-election-dapp.git
+   cd university-election-dapp
+   ```
 
-1. Install dependencies if it was skipped in CLI:
+2. **Install dependencies**
+   ```bash
+   yarn install
+   ```
 
+3. **Start local blockchain**
+   ```bash
+   yarn chain
+   ```
+   This starts a local Hardhat network with pre-configured accounts.
+
+4. **Deploy smart contracts**
+   ```bash
+   yarn deploy
+   ```
+   Deploys the YourContract.sol to the local network with three hardcoded universities.
+
+5. **Launch the application**
+   ```bash
+   yarn start
+   ```
+   Access the DApp at `http://localhost:3000`
+
+### Pre-configured Universities
+The system comes with three hardcoded university addresses:
+- University 1: `0x904362203af32398c5F50E1Ac9C9F1e164888cE9`
+- University 2: `0xA4dB1a53a8b538462F66dEAed1B73375357F602a`
+- University 3: `0x481709C180f3B285618ddfdBCf51ecc3Be6999eB`
+
+Each starts with 10 enrolled professors and can accommodate up to 30.
+
+## 📖 Usage
+
+### For Universities
+
+#### Starting an Election
+1. Connect wallet using one of the pre-configured university addresses
+2. Ensure election status is "NO_ELECTION"
+3. Click "Start Votation" button
+4. Pay 100 wei election fee
+5. Election runs for 1000 blocks
+
+#### Voting Process
+1. During election (IN_PROGRESS status)
+2. Enter vote data in JSON format: `{"candidate_name": vote_count}`
+3. Example: `{"Alice": 50, "Bob": 30, "scheda bianca": 0}`
+4. Submit encrypted vote (one vote per university)
+
+#### Professor Management
+1. **Enrollment**: Pay 10 wei to enroll professors
+2. **Capacity**: Maximum 30 professors per university
+3. **Unenrollment**: Remove professors when no election is active
+
+### For Developers
+
+#### Testing Contracts
+```bash
+yarn hardhat:test
 ```
-cd my-dapp-example
-yarn install
+
+#### Contract Debugging
+1. Navigate to `/debug` page
+2. Interact with contract functions directly
+3. View contract state and events
+4. Test different scenarios
+
+#### Linting & Type Checking
+```bash
+yarn hardhat:lint
+yarn next:lint
+yarn next:check-types
 ```
 
-2. Run a local network in the first terminal:
+## 🔧 Configuration
 
+### Network Configuration
+Edit `packages/hardhat/hardhat.config.ts` to modify network settings.
+
+### Frontend Configuration
+Customize `packages/nextjs/scaffold.config.ts` for:
+- Target networks
+- Polling intervals
+- API keys
+- Wallet configurations
+
+### Contract Parameters
+Modify these values in the constructor:
+- `CAP`: Maximum professors per university (default: 30)
+- `ENROLLMENT_FEE`: Professor enrollment fee (default: 10 wei)
+- `ELECTION_START_FEE`: Election start fee (default: 100 wei)
+- `electionDurationInBlocks`: Election duration (default: 1000 blocks)
+
+## 🔒 Security Features
+
+### Access Control
+- **University Verification**: Only pre-registered universities can participate
+- **Election State Checks**: Actions restricted based on election status
+- **Professor Association**: Professors can only be enrolled in one university
+
+### Fee Management
+- **Automatic Transfers**: Fees automatically sent to universities
+- **Refund Mechanism**: Election fees refunded if quorum not met
+- **Value Validation**: Minimum fee requirements enforced
+
+### Vote Integrity
+- **One Vote Per University**: Universities cannot vote multiple times
+- **Encrypted Votes**: Vote data is encrypted before storage
+- **Immutable Records**: Votes stored permanently on blockchain
+
+## 🛠️ Development
+
+### Project Structure
 ```
-yarn chain
+├── packages/
+│   ├── hardhat/          # Smart contract development
+│   │   ├── contracts/    # Solidity contracts
+│   │   ├── deploy/       # Deployment scripts
+│   │   └── test/         # Contract tests
+│   └── nextjs/           # Frontend application
+│       ├── app/          # Next.js app router
+│       ├── components/   # React components
+│       ├── hooks/        # Custom React hooks
+│       └── utils/        # Utility functions
 ```
 
-This command starts a local Ethereum network using Hardhat. The network runs on your local machine and can be used for testing and development. You can customize the network configuration in `packages/hardhat/hardhat.config.ts`.
+### Smart Contract Events
+The contract emits several events for frontend integration:
+- `ElectionStarted`: When an election begins
+- `UniversityVoted`: When a university submits a vote
+- `ProfessorEnrolled`: When a professor enrolls
+- `ProfessorRemoved`: When a professor is removed
+- `StatusChanged`: When election status changes
+- `FeeReceived`: When fees are paid
 
-3. On a second terminal, deploy the test contract:
+### Custom Hooks
+- `useScaffoldReadContract`: Read contract state
+- `useScaffoldWriteContract`: Execute contract functions
+- `useDeployedContractInfo`: Get contract deployment info
+- `useTargetNetwork`: Manage network connections
 
+## 📊 Election Workflow
+
+```mermaid
+graph TD
+    A[No Election] --> B[University Pays 100 wei]
+    B --> C[Election Started]
+    C --> D[Universities Vote]
+    D --> E{All Voted or Time Up?}
+    E -->|No| D
+    E -->|Yes| F[Election Closed]
+    F --> G{Quorum Met?}
+    G -->|Yes| H[Winner Declared]
+    G -->|No| I[Fee Refunded]
+    H --> A
+    I --> A
 ```
-yarn deploy
-```
 
-This command deploys a test smart contract to the local network. The contract is located in `packages/hardhat/contracts` and can be modified to suit your needs. The `yarn deploy` command uses the deploy script located in `packages/hardhat/deploy` to deploy the contract to the network. You can also customize the deploy script.
+## 🤝 Contributing
 
-4. On a third terminal, start your NextJS app:
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
-```
-yarn start
-```
+### Development Workflow
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-Visit your app on: `http://localhost:3000`. You can interact with your smart contract using the `Debug Contracts` page. You can tweak the app config in `packages/nextjs/scaffold.config.ts`.
+### Reporting Issues
+- Use GitHub Issues for bug reports
+- Provide detailed reproduction steps
+- Include relevant logs and screenshots
 
-Run smart contract test with `yarn hardhat:test`
+## 📄 License
 
-- Edit your smart contracts in `packages/hardhat/contracts`
-- Edit your frontend homepage at `packages/nextjs/app/page.tsx`. For guidance on [routing](https://nextjs.org/docs/app/building-your-application/routing/defining-routes) and configuring [pages/layouts](https://nextjs.org/docs/app/building-your-application/routing/pages-and-layouts) checkout the Next.js documentation.
-- Edit your deployment scripts in `packages/hardhat/deploy`
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 🔗 Resources
 
-## Documentation
+- [Scaffold-ETH 2 Documentation](https://docs.scaffoldeth.io)
+- [Hardhat Documentation](https://hardhat.org/docs)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Wagmi Documentation](https://wagmi.sh/)
+- [RainbowKit Documentation](https://www.rainbowkit.com/)
 
-Visit our [docs](https://docs.scaffoldeth.io) to learn how to start building with Scaffold-ETH 2.
+## 📞 Support
 
-To know more about its features, check out our [website](https://scaffoldeth.io).
+- Documentation: [docs.scaffoldeth.io](https://docs.scaffoldeth.io)
+- GitHub Issues: For bug reports and feature requests
+- Community: Join the Scaffold-ETH community discussions
 
-## Contributing to Scaffold-ETH 2
+---
 
-We welcome contributions to Scaffold-ETH 2!
-
-Please see [CONTRIBUTING.MD](https://github.com/scaffold-eth/scaffold-eth-2/blob/main/CONTRIBUTING.md) for more information and guidelines for contributing to Scaffold-ETH 2.
+Built with ❤️ using Scaffold-ETH 2

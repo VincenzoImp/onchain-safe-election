@@ -6135,6 +6135,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"bigint-crypto-utils@npm:^3.3.0":
+  version: 3.3.0
+  resolution: "bigint-crypto-utils@npm:3.3.0"
+  checksum: 9598ce57b23f776c8936d44114c9f051e62b5fa654915b664784cbcbacc5aa0485f4479571c51ff58008abb1210c0d6a234853742f07cf84bda890f2a1e01000
+  languageName: node
+  linkType: hard
+
 "bin-links@npm:^5.0.0":
   version: 5.0.0
   resolution: "bin-links@npm:5.0.0"
@@ -13492,6 +13499,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"paillier-bigint@npm:^3.4.3":
+  version: 3.4.3
+  resolution: "paillier-bigint@npm:3.4.3"
+  dependencies:
+    bigint-crypto-utils: ^3.3.0
+  checksum: feda4e6eb8fe8e2612bb5e5dc6b6e0bfad92b4a642274a30c784b4e17993e0167dcf0789b763af751f808761f46e9bb14c64a44961e83ce350db4ec7073038f7
+  languageName: node
+  linkType: hard
+
 "parent-module@npm:^1.0.0":
   version: 1.0.1
   resolution: "parent-module@npm:1.0.1"
@@ -14801,6 +14817,7 @@ __metadata:
   dependencies:
     husky: ~9.1.6
     lint-staged: ~13.2.2
+    paillier-bigint: ^3.4.3
   languageName: unknown
   linkType: soft
 
