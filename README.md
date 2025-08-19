@@ -1,4 +1,4 @@
-# 🗳️ On-Chain Safe Election
+# On-Chain Safe Election
 
 🎓 A decentralized application (DApp) for managing university elections and professor enrollment built on Ethereum blockchain. This system enables universities to participate in transparent, secure elections while managing professor enrollments with smart contract-enforced rules.
 
