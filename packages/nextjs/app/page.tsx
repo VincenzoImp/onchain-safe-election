@@ -2,158 +2,130 @@
 
 import { useEffect, useState } from "react";
 import type { NextPage } from "next";
-import { parseUnits } from "viem";
+import { parseEther } from "viem";
 import { useAccount } from "wagmi";
-import { Address } from "~~/components/scaffold-eth";
-import { decrypt, encrypt, privateKey, publicKey, sum_encrypted } from "~~/crypto/fhe";
 import { useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
 
 const Home: NextPage = () => {
-  const zeroaddress = "0x0000000000000000000000000000000000000000";
   const { address: connectedAddress } = useAccount();
   const { writeContractAsync: writeYourContractAsync } = useScaffoldWriteContract("YourContract");
 
-  // State management
-  const [selectedUniversity, setSelectedUniversity] = useState<string>("");
-  const [voteData, setVoteData] = useState('{"Alice": 50, "Bob": 30, "scheda bianca": 0}');
-  const [loading, setLoading] = useState<string>("");
-  const [notification, setNotification] = useState<{ type: "success" | "error" | ""; message: string }>({
-    type: "",
+  // Client-side only state
+  const [isClient, setIsClient] = useState(false);
+
+  // Form state
+  const [voteData, setVoteData] = useState("");
+  const [newUniversityAddress, setNewUniversityAddress] = useState("");
+  const [newUniversityName, setNewUniversityName] = useState("");
+  const [removeUniversityAddress, setRemoveUniversityAddress] = useState("");
+  const [selectedUniversity, setSelectedUniversity] = useState("");
+  const [loading, setLoading] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" }>({
     message: "",
+    type: "success",
   });
 
-  // Owner management state
-  const [newUniversityAddress, setNewUniversityAddress] = useState<string>("");
-  const [newUniversityName, setNewUniversityName] = useState<string>("");
-  const [removeUniversityAddress, setRemoveUniversityAddress] = useState<string>("");
+  // Ensure client-side only rendering for Web3 components
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  // Contract reads
-  const { data: owner } = useScaffoldReadContract({
-    contractName: "YourContract",
-    functionName: "owner",
-  });
-
-  const { data: universityAddress, isLoading } = useScaffoldReadContract({
-    contractName: "YourContract",
-    functionName: "professorToUniversity",
-    args: [connectedAddress],
-  });
-
-  const { data: VOTE_STATUS, isLoading: isLoading2 } = useScaffoldReadContract({
+  // Contract reads - only after client-side hydration
+  const { data: VOTE_STATUS } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "VOTE_STATUS",
+    watch: true,
   });
 
-  const { data: hasVoted, isLoading: isLoading3 } = useScaffoldReadContract({
+  const { data: currentPresident } = useScaffoldReadContract({
     contractName: "YourContract",
-    functionName: "hasVoted",
-    args: [connectedAddress],
-  });
-
-  const { data: cap, isLoading: isLoading4 } = useScaffoldReadContract({
-    contractName: "YourContract",
-    functionName: "CAP",
+    functionName: "currentPresident",
+    watch: true,
   });
 
   const { data: votesNumber } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "votesNumber",
+    watch: true,
   });
 
   const { data: univNumber } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "univNumber",
+    watch: true,
   });
 
   const { data: electionEndBlock } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "electionEndBlock",
-  });
-
-  const { data: winner } = useScaffoldReadContract({
-    contractName: "YourContract",
-    functionName: "WINNER",
+    watch: true,
   });
 
   const { data: currentBlock } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "getCurrentBlock",
+    watch: true,
   });
 
   const { data: universitiesData } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "getAllUniversitiesWithNames",
+    watch: true,
   });
 
-  const { data: isUserUniversity } = useScaffoldReadContract({
+  const { data: hasVotedData } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "hasVoted",
+    args: [connectedAddress],
+    watch: true,
+  });
+
+  const { data: isUniversityData } = useScaffoldReadContract({
     contractName: "YourContract",
     functionName: "isUniversity",
     args: [connectedAddress],
+    watch: true,
   });
 
-  // Auto-clear notifications
-  useEffect(() => {
-    if (notification.message) {
-      const timer = setTimeout(() => {
-        setNotification({ type: "", message: "" });
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [notification]);
+  const { data: universityAddress } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "getProfessorInfo",
+    args: [connectedAddress],
+    watch: true,
+  });
 
-  // Helper functions
-  const showNotification = (type: "success" | "error", message: string) => {
-    setNotification({ type, message });
-  };
+  const { data: winner } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "WINNER",
+    watch: true,
+  });
 
-  const handleTransaction = async (txFunction: () => Promise<void>, operation: string) => {
-    setLoading(operation);
-    try {
-      await txFunction();
-      showNotification("success", `${operation} successful!`);
-    } catch (e) {
-      console.error(`Error ${operation}:`, e);
-      showNotification("error", `Error ${operation}. Please try again.`);
-    } finally {
-      setLoading("");
-    }
-  };
+  const { data: heldFeeInfo } = useScaffoldReadContract({
+    contractName: "YourContract",
+    functionName: "getHeldFeeInfo",
+    watch: true,
+  });
 
-  const validateVoteData = (voteString: string): boolean => {
-    try {
-      const voteJson = JSON.parse(voteString);
-      if (typeof voteJson !== "object") return false;
-
-      for (const [key, value] of Object.entries(voteJson)) {
-        if (typeof key !== "string" || typeof value !== "number") return false;
-        if (value < 0) return false;
-      }
-
-      const sum = Object.values(voteJson).reduce((acc: number, val) => acc + (val as number), 0);
-      if (cap !== undefined && sum > cap) return false;
-
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  // Loading state
-  if (isLoading4 || isLoading3 || isLoading2 || isLoading || !connectedAddress || universityAddress === undefined) {
+  // Don't render Web3 components until client-side
+  if (!isClient) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center space-y-4">
+      <div className="min-h-screen bg-base-200 flex items-center justify-center">
+        <div className="text-center">
           <div className="loading loading-spinner loading-lg"></div>
-          <p className="text-lg">Loading election data...</p>
+          <p className="mt-4">Loading application...</p>
         </div>
       </div>
     );
   }
 
-  const isOwner = owner === connectedAddress;
-  const isUniversity = isUserUniversity || false;
+  // Derived state
+  const hasVoted = hasVotedData ?? false;
+  const isUniversity = isUniversityData ?? false;
+  const isCurrentPresident = connectedAddress === currentPresident;
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
+
   const universities = universitiesData
-    ? universitiesData[0].map((addr, index) => ({
+    ? universitiesData[0].map((addr: string, index: number) => ({
         address: addr,
         name: universitiesData[1][index] || addr,
       }))
@@ -161,6 +133,35 @@ const Home: NextPage = () => {
 
   const statusNames = ["No Election", "In Progress", "Closed"];
   const statusColors = ["bg-gray-500", "bg-blue-500", "bg-green-500"];
+
+  // Utility functions
+  const validateVoteData = (data: string): boolean => {
+    try {
+      const parsed = JSON.parse(data);
+      return (
+        typeof parsed === "object" &&
+        parsed !== null &&
+        Object.values(parsed).every(val => typeof val === "number" && Number(val) >= 0)
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const handleTransaction = async (transactionFn: () => Promise<any>, action: string) => {
+    setLoading(action);
+    try {
+      await transactionFn();
+      setNotification({ message: `${action} successful!`, type: "success" });
+    } catch (error: any) {
+      console.error(`${action} failed:`, error);
+      const errorMessage = error?.shortMessage || error?.message || "Transaction failed";
+      setNotification({ message: `${action} failed: ${errorMessage}`, type: "error" });
+    } finally {
+      setLoading(null);
+      setTimeout(() => setNotification({ message: "", type: "success" }), 5000);
+    }
+  };
 
   // Component functions
   const NotificationBanner = () => {
@@ -183,6 +184,21 @@ const Home: NextPage = () => {
           Election Status: {statusNames[typeof VOTE_STATUS === "number" ? VOTE_STATUS : 0]}
         </h2>
 
+        {currentPresident && currentPresident !== zeroAddress && (
+          <div className="alert alert-info">
+            <span className="font-bold">
+              Current President: {currentPresident.slice(0, 8)}...{currentPresident.slice(-6)}
+              {isCurrentPresident && " (You)"}
+            </span>
+          </div>
+        )}
+
+        {(!currentPresident || currentPresident === zeroAddress) && (
+          <div className="alert alert-warning">
+            <span>No president elected yet. Elect one through an election!</span>
+          </div>
+        )}
+
         {VOTE_STATUS === 1 && (
           <div className="space-y-3">
             <div className="flex justify-between text-sm">
@@ -192,7 +208,7 @@ const Home: NextPage = () => {
               <span>
                 Blocks remaining:{" "}
                 {electionEndBlock && currentBlock
-                  ? (Number(electionEndBlock) - Number(currentBlock)).toString()
+                  ? Math.max(0, Number(electionEndBlock) - Number(currentBlock)).toString()
                   : "Loading..."}
               </span>
             </div>
@@ -204,22 +220,29 @@ const Home: NextPage = () => {
           </div>
         )}
 
-        {winner && (
+        {heldFeeInfo && heldFeeInfo[0] > 0 && (
+          <div className="alert alert-warning">
+            <span>Election fee held: {heldFeeInfo[0].toString()} wei (will be returned after election)</span>
+          </div>
+        )}
+
+        {winner && winner !== "" && (
           <div className="alert alert-success">
-            <span className="font-bold">Winner: {winner}</span>
+            <span className="font-bold">Last Winner: {winner}</span>
           </div>
         )}
       </div>
     </div>
   );
 
-  const OwnerManagementCard = () => {
-    if (!isOwner) return null;
+  const PresidentManagementCard = () => {
+    if (!isCurrentPresident || !currentPresident || currentPresident === zeroAddress) return null;
 
     return (
       <div className="card bg-secondary text-secondary-content shadow-xl mb-6">
         <div className="card-body">
-          <h2 className="card-title">👑 Owner Management</h2>
+          <h2 className="card-title">👑 President Management</h2>
+          <p className="text-sm">As the current president, you can add or remove universities.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Add University */}
@@ -227,7 +250,7 @@ const Home: NextPage = () => {
               <h3 className="font-semibold">Add University</h3>
               <input
                 type="text"
-                placeholder="University Address"
+                placeholder="University Address (0x...)"
                 className="input input-bordered w-full text-base-content"
                 value={newUniversityAddress}
                 onChange={e => setNewUniversityAddress(e.target.value)}
@@ -246,13 +269,14 @@ const Home: NextPage = () => {
                 disabled={!newUniversityAddress || !newUniversityName || loading === "adding" || VOTE_STATUS !== 0}
                 onClick={() =>
                   handleTransaction(async () => {
+                    if (!writeYourContractAsync) throw new Error("Contract not ready");
                     await writeYourContractAsync({
                       functionName: "addUniversity",
                       args: [newUniversityAddress, newUniversityName],
                     });
                     setNewUniversityAddress("");
                     setNewUniversityName("");
-                  }, "adding")
+                  }, "Adding university")
                 }
               >
                 {loading === "adding" ? "Adding..." : "Add University"}
@@ -280,12 +304,13 @@ const Home: NextPage = () => {
                 disabled={!removeUniversityAddress || loading === "removing" || VOTE_STATUS !== 0}
                 onClick={() =>
                   handleTransaction(async () => {
+                    if (!writeYourContractAsync) throw new Error("Contract not ready");
                     await writeYourContractAsync({
                       functionName: "removeUniversity",
                       args: [removeUniversityAddress],
                     });
                     setRemoveUniversityAddress("");
-                  }, "removing")
+                  }, "Removing university")
                 }
               >
                 {loading === "removing" ? "Removing..." : "Remove University"}
@@ -297,93 +322,17 @@ const Home: NextPage = () => {
     );
   };
 
-  const ProfessorManagementCard = () => {
-    if (VOTE_STATUS !== 0) return null;
-
-    return (
-      <div className="card bg-base-100 shadow-xl mb-6">
-        <div className="card-body">
-          <h2 className="card-title">👨‍🏫 Professor Management</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Enroll Professor */}
-            <div className="space-y-3">
-              <h3 className="font-semibold">Enroll Professor</h3>
-              <select
-                className="select select-bordered w-full"
-                value={selectedUniversity}
-                onChange={e => setSelectedUniversity(e.target.value)}
-              >
-                <option value="">Select University</option>
-                {universities.map(uni => (
-                  <option key={uni.address} value={uni.address}>
-                    {uni.name}
-                  </option>
-                ))}
-              </select>
-              <button
-                className="btn btn-primary w-full"
-                disabled={!selectedUniversity || loading === "enrolling" || universityAddress !== zeroaddress}
-                onClick={() =>
-                  handleTransaction(async () => {
-                    await writeYourContractAsync({
-                      functionName: "enrollProfessor",
-                      args: [selectedUniversity],
-                      value: parseUnits("10", 1),
-                    });
-                    setSelectedUniversity("");
-                  }, "enrolling")
-                }
-              >
-                {loading === "enrolling" ? "Enrolling..." : "Enroll (10 wei)"}
-              </button>
-              {universityAddress !== zeroaddress && (
-                <p className="text-sm text-warning">You are already enrolled in a university</p>
-              )}
-            </div>
-
-            {/* Remove Professor */}
-            <div className="space-y-3">
-              <h3 className="font-semibold">Remove Professor</h3>
-              <p className="text-sm text-gray-600">Remove yourself from current university</p>
-              <button
-                className="btn btn-error w-full"
-                disabled={universityAddress === zeroaddress || loading === "unenrolling"}
-                onClick={() =>
-                  handleTransaction(async () => {
-                    await writeYourContractAsync({
-                      functionName: "removeProfessor",
-                    });
-                  }, "unenrolling")
-                }
-              >
-                {loading === "unenrolling" ? "Removing..." : "Remove Professor"}
-              </button>
-              {universityAddress === zeroaddress && (
-                <p className="text-sm text-info">You are not enrolled in any university</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const StartElectionCard = () => {
-    if (VOTE_STATUS !== 0 || (!isUniversity && !isOwner)) return null;
+    if (VOTE_STATUS !== 0 || !isUniversity) return null;
 
     return (
       <div className="card bg-primary text-primary-content shadow-xl mb-6">
         <div className="card-body">
           <h2 className="card-title">🗳️ Start New Election</h2>
-          <p>
-            {isOwner
-              ? "Start a new university election as owner (no fee required)."
-              : "Start a new university election. Requires 100 wei fee."}
-          </p>
+          <p>Start a new university election. Requires 100 wei fee (will be returned after election).</p>
           {universities.length === 0 && (
             <div className="alert alert-warning">
-              <span>No universities registered. Add universities first.</span>
+              <span>No universities registered. Current president must add universities first.</span>
             </div>
           )}
           <div className="card-actions justify-end">
@@ -392,14 +341,15 @@ const Home: NextPage = () => {
               disabled={loading === "starting" || universities.length === 0}
               onClick={() =>
                 handleTransaction(async () => {
+                  if (!writeYourContractAsync) throw new Error("Contract not ready");
                   await writeYourContractAsync({
                     functionName: "startVotation",
-                    value: isOwner ? parseUnits("0", 1) : parseUnits("100", 1),
+                    value: parseEther("0.0000000000000001"), // 100 wei
                   });
-                }, "starting")
+                }, "Starting election")
               }
             >
-              {loading === "starting" ? "Starting..." : isOwner ? "Start Election (Owner)" : "Start Election (100 wei)"}
+              {loading === "starting" ? "Starting..." : "Start Election (100 wei)"}
             </button>
           </div>
         </div>
@@ -454,18 +404,13 @@ const Home: NextPage = () => {
               disabled={!validateVoteData(voteData) || loading === "voting"}
               onClick={() =>
                 handleTransaction(async () => {
-                  const voteJson = JSON.parse(voteData);
-                  const encryptedVote: { [key: string]: string } = {};
-
-                  for (const [key, value] of Object.entries(voteJson)) {
-                    encryptedVote[key] = (await encrypt(publicKey, BigInt(value as number))).toString();
-                  }
-
+                  if (!writeYourContractAsync) throw new Error("Contract not ready");
                   await writeYourContractAsync({
                     functionName: "vote",
-                    args: [JSON.stringify(encryptedVote)],
+                    args: [voteData],
                   });
-                }, "voting")
+                  setVoteData("");
+                }, "Submitting vote")
               }
             >
               {loading === "voting" ? "Submitting..." : "Submit Vote"}
@@ -476,70 +421,43 @@ const Home: NextPage = () => {
     );
   };
 
-  const ResultsCard = () => {
+  const CloseElectionCard = () => {
     if (VOTE_STATUS !== 2) return null;
-
-    const processResults = async () => {
-      const results: { [key: string]: bigint[] } = {};
-
-      // Process votes from all universities
-      for (const university of universities) {
-        try {
-          // We need to fetch votes for each university individually
-          // This is a workaround since we can't use hooks in async functions
-          const response = await fetch(`/api/votes/${university.address}`);
-          if (response.ok) {
-            const votes = await response.text();
-            if (votes) {
-              const votesJson = JSON.parse(votes);
-              for (const [key, value] of Object.entries(votesJson)) {
-                const bigvalue = BigInt(value as string | number);
-                if (key in results) {
-                  results[key].push(bigvalue);
-                } else {
-                  results[key] = [bigvalue];
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.warn(`Error processing votes for ${university.address}:`, error);
-        }
-      }
-
-      // Sum and decrypt votes
-      const votesSum: { [key: string]: bigint } = {};
-      for (const [key, value] of Object.entries(results)) {
-        votesSum[key] = sum_encrypted(publicKey, ...value.map(v => v as bigint));
-      }
-
-      const decryptedVotes: { [key: string]: number } = {};
-      for (const [key, value] of Object.entries(votesSum)) {
-        decryptedVotes[key] = Number(await decrypt(privateKey, value as bigint));
-      }
-
-      const decryptedString = JSON.stringify(decryptedVotes);
-      console.log("Election Results:", decryptedString);
-
-      await writeYourContractAsync({
-        functionName: "close",
-        args: [decryptedString],
-      });
-    };
 
     return (
       <div className="card bg-info text-info-content shadow-xl mb-6">
         <div className="card-body">
-          <h2 className="card-title">📊 Election Results</h2>
-          <p>View and process election results.</p>
+          <h2 className="card-title">🏁 Close Election</h2>
+          <p>Election has ended. Anyone can close it and set the winner.</p>
+
+          <div className="form-control">
+            <label className="label">
+              <span className="label-text text-info-content">Winner Data (JSON format)</span>
+            </label>
+            <textarea
+              className="textarea textarea-bordered h-24 text-base-content"
+              placeholder='{"winner": "Alice", "votes": 150}'
+              value={voteData}
+              onChange={e => setVoteData(e.target.value)}
+            />
+          </div>
 
           <div className="card-actions justify-end">
             <button
               className="btn btn-secondary"
-              disabled={loading === "processing"}
-              onClick={() => handleTransaction(processResults, "processing")}
+              disabled={!voteData || loading === "closing"}
+              onClick={() =>
+                handleTransaction(async () => {
+                  if (!writeYourContractAsync) throw new Error("Contract not ready");
+                  await writeYourContractAsync({
+                    functionName: "close",
+                    args: [voteData],
+                  });
+                  setVoteData("");
+                }, "Closing election")
+              }
             >
-              {loading === "processing" ? "Processing..." : "Process Results"}
+              {loading === "closing" ? "Closing..." : "Close Election"}
             </button>
           </div>
         </div>
@@ -547,153 +465,145 @@ const Home: NextPage = () => {
     );
   };
 
-  const AccountInfoCard = () => {
-    const getUserType = () => {
-      if (isOwner) return { type: "Owner", color: "badge-accent" };
-      if (isUniversity) return { type: "University", color: "badge-primary" };
-      return { type: "User", color: "badge-neutral" };
-    };
-
-    const userType = getUserType();
-    const enrolledUniversity = universities.find(u => u.address === universityAddress);
+  const ProfessorManagementCard = () => {
+    if (VOTE_STATUS !== 0) return null;
 
     return (
       <div className="card bg-base-100 shadow-xl mb-6">
         <div className="card-body">
-          <h2 className="card-title">👤 Account Information</h2>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span>Address:</span>
-              <Address address={connectedAddress} />
-            </div>
-            <div className="flex justify-between">
-              <span>Type:</span>
-              <span className={`badge ${userType.color}`}>{userType.type}</span>
-            </div>
-            {universityAddress !== zeroaddress && (
-              <div className="flex justify-between">
-                <span>Enrolled in:</span>
-                <span className="text-sm font-medium">{enrolledUniversity?.name || universityAddress}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
+          <h2 className="card-title">👨‍🏫 Professor Management</h2>
 
-  const UniversityStatsCard = () => {
-    const UniversityItem = ({ university }: { university: { address: string; name: string } }) => {
-      const { data: uniInfo } = useScaffoldReadContract({
-        contractName: "YourContract",
-        functionName: "getUniversityInfo",
-        args: [university.address],
-      });
-
-      return (
-        <div className="p-3 bg-base-200 rounded-lg">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-medium">{university.name}</h4>
-              <p className="text-xs text-gray-600">{university.address.slice(0, 10)}...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Enroll Professor */}
+            <div className="space-y-3">
+              <h3 className="font-semibold">Enroll Professor</h3>
+              <select
+                className="select select-bordered w-full"
+                value={selectedUniversity}
+                onChange={e => setSelectedUniversity(e.target.value)}
+              >
+                <option value="">Select University</option>
+                {universities.map(uni => (
+                  <option key={uni.address} value={uni.address}>
+                    {uni.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn btn-primary w-full"
+                disabled={!selectedUniversity || loading === "enrolling" || universityAddress !== zeroAddress}
+                onClick={() =>
+                  handleTransaction(async () => {
+                    if (!writeYourContractAsync) throw new Error("Contract not ready");
+                    await writeYourContractAsync({
+                      functionName: "enrollProfessor",
+                      args: [selectedUniversity],
+                      value: parseEther("0.00000000000000001"), // 10 wei
+                    });
+                    setSelectedUniversity("");
+                  }, "Enrolling professor")
+                }
+              >
+                {loading === "enrolling" ? "Enrolling..." : "Enroll (10 wei)"}
+              </button>
+              {universityAddress !== zeroAddress && (
+                <p className="text-sm text-warning">You are already enrolled in a university</p>
+              )}
             </div>
-            <div className="text-right text-sm">
-              <div>
-                Professors: {uniInfo ? uniInfo[2].toString() : "0"}/{cap?.toString()}
-              </div>
-              {VOTE_STATUS === 1 && (
-                <div className="flex items-center space-x-1 text-xs mt-1">
-                  {uniInfo && uniInfo[3] ? (
-                    <>
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-green-600">Voted</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span className="text-orange-600">Pending</span>
-                    </>
-                  )}
-                </div>
+
+            {/* Remove Professor */}
+            <div className="space-y-3">
+              <h3 className="font-semibold">Remove Professor</h3>
+              <p className="text-sm text-gray-600">Remove yourself from current university</p>
+              <button
+                className="btn btn-error w-full"
+                disabled={universityAddress === zeroAddress || loading === "unenrolling"}
+                onClick={() =>
+                  handleTransaction(async () => {
+                    if (!writeYourContractAsync) throw new Error("Contract not ready");
+                    await writeYourContractAsync({
+                      functionName: "removeProfessor",
+                    });
+                  }, "Removing professor")
+                }
+              >
+                {loading === "unenrolling" ? "Removing..." : "Remove Professor"}
+              </button>
+              {universityAddress === zeroAddress && (
+                <p className="text-sm text-info">You are not enrolled in any university</p>
               )}
             </div>
           </div>
         </div>
-      );
-    };
-
-    return (
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">🏛️ Universities ({universities.length})</h2>
-          {universities.length === 0 ? (
-            <p className="text-center text-gray-500 py-4">No universities registered</p>
-          ) : (
-            <div className="space-y-2">
-              {universities.map(uni => (
-                <UniversityItem key={uni.address} university={uni} />
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     );
   };
 
+  const UniversityListCard = () => (
+    <div className="card bg-base-100 shadow-xl mb-6">
+      <div className="card-body">
+        <h2 className="card-title">🏛️ Registered Universities</h2>
+
+        {universities.length === 0 ? (
+          <p className="text-gray-500">No universities registered yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Address</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {universities.map(uni => (
+                  <tr key={uni.address}>
+                    <td className="font-bold">{uni.name}</td>
+                    <td className="font-mono text-sm">
+                      {uni.address.slice(0, 8)}...{uni.address.slice(-6)}
+                    </td>
+                    <td>
+                      {connectedAddress === uni.address && <span className="badge badge-primary">You</span>}
+                      {hasVotedData && VOTE_STATUS === 1 && <span className="badge badge-success ml-2">Voted</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen bg-base-200 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
+    <div className="min-h-screen bg-base-200">
+      <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-2">🗳️ University Election System</h1>
-          <p className="text-xl text-base-content/70">Decentralized voting platform for universities</p>
-          {isOwner && <div className="badge badge-accent badge-lg mt-2">Contract Owner</div>}
+          <h1 className="text-4xl font-bold text-primary mb-2">University Election System</h1>
+          <p className="text-lg text-base-content opacity-70">
+            Decentralized voting system for universities with current president governance
+          </p>
         </div>
 
         <NotificationBanner />
+        <ElectionStatusCard />
+        <PresidentManagementCard />
+        <StartElectionCard />
+        <VotingCard />
+        <CloseElectionCard />
+        <ProfessorManagementCard />
+        <UniversityListCard />
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-          {/* Main Content */}
-          <div className="xl:col-span-3 space-y-6">
-            <ElectionStatusCard />
-            <OwnerManagementCard />
-            <StartElectionCard />
-            <VotingCard />
-            <ResultsCard />
-            <ProfessorManagementCard />
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <AccountInfoCard />
-            <UniversityStatsCard />
-
-            {/* System Info Card */}
-            <div className="card bg-base-100 shadow-xl">
-              <div className="card-body">
-                <h2 className="card-title">ℹ️ System Info</h2>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Current Block:</span>
-                    <span>{currentBlock?.toString() || "Loading..."}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Enrollment Fee:</span>
-                    <span>10 wei</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Election Fee:</span>
-                    <span>100 wei</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Max Professors:</span>
-                    <span>{cap?.toString()}</span>
-                  </div>
-                </div>
-              </div>
+        {!connectedAddress && (
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body text-center">
+              <h2 className="card-title justify-center">🔌 Connect Your Wallet</h2>
+              <p>Please connect your wallet to interact with the election system.</p>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -7,7 +7,7 @@ import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 const deployedContracts = {
   31337: {
     YourContract: {
-      address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
       abi: [
         {
           inputs: [],
@@ -48,6 +48,12 @@ const deployedContracts = {
               name: "electionEndBlock",
               type: "uint256",
             },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "feeHeld",
+              type: "uint256",
+            },
           ],
           name: "ElectionStarted",
           type: "event",
@@ -83,17 +89,36 @@ const deployedContracts = {
             {
               indexed: true,
               internalType: "address",
-              name: "previousOwner",
+              name: "to",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+          ],
+          name: "FeeReturned",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "previousPresident",
               type: "address",
             },
             {
               indexed: true,
               internalType: "address",
-              name: "newOwner",
+              name: "newPresident",
               type: "address",
             },
           ],
-          name: "OwnershipTransferred",
+          name: "PresidentChanged",
           type: "event",
         },
         {
@@ -357,6 +382,19 @@ const deployedContracts = {
         },
         {
           inputs: [],
+          name: "currentPresident",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
           name: "electionEndBlock",
           outputs: [
             {
@@ -366,13 +404,6 @@ const deployedContracts = {
             },
           ],
           stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "emergencyWithdraw",
-          outputs: [],
-          stateMutability: "nonpayable",
           type: "function",
         },
         {
@@ -386,6 +417,19 @@ const deployedContracts = {
           name: "enrollProfessor",
           outputs: [],
           stateMutability: "payable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "feeHoldingAddress",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
           type: "function",
         },
         {
@@ -474,6 +518,29 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "getHeldFeeInfo",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+            {
+              internalType: "address",
+              name: "holder",
+              type: "address",
+            },
+            {
+              internalType: "address",
+              name: "starter",
+              type: "address",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "address",
@@ -546,6 +613,19 @@ const deployedContracts = {
           type: "function",
         },
         {
+          inputs: [],
+          name: "heldFee",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
           inputs: [
             {
               internalType: "address",
@@ -553,7 +633,7 @@ const deployedContracts = {
               type: "address",
             },
           ],
-          name: "isOwner",
+          name: "isCurrentPresident",
           outputs: [
             {
               internalType: "bool",
@@ -578,19 +658,6 @@ const deployedContracts = {
               internalType: "bool",
               name: "",
               type: "bool",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "owner",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
             },
           ],
           stateMutability: "view",
@@ -643,19 +710,6 @@ const deployedContracts = {
           type: "function",
         },
         {
-          inputs: [
-            {
-              internalType: "address",
-              name: "newOwner",
-              type: "address",
-            },
-          ],
-          name: "transferOwnership",
-          outputs: [],
-          stateMutability: "nonpayable",
-          type: "function",
-        },
-        {
           inputs: [],
           name: "univNumber",
           outputs: [
@@ -677,19 +731,6 @@ const deployedContracts = {
             },
           ],
           name: "universities",
-          outputs: [
-            {
-              internalType: "address",
-              name: "",
-              type: "address",
-            },
-          ],
-          stateMutability: "view",
-          type: "function",
-        },
-        {
-          inputs: [],
-          name: "universityAddress",
           outputs: [
             {
               internalType: "address",
@@ -733,6 +774,19 @@ const deployedContracts = {
               internalType: "uint256",
               name: "",
               type: "uint256",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "universityThatStartedElection",
+          outputs: [
+            {
+              internalType: "address",
+              name: "",
+              type: "address",
             },
           ],
           stateMutability: "view",
@@ -789,7 +843,7 @@ const deployedContracts = {
         },
       ],
       inheritedFunctions: {},
-      deployedOnBlock: 1,
+      deployedOnBlock: 3,
     },
   },
 } as const;

@@ -21,14 +21,14 @@ contract YourContract {
 
     // ============ STATE VARIABLES ============
     
-    // Owner management
-    address public owner;
+    // Current President (winner of last election)
+    address public currentPresident;
     
     // University and professor mappings
     mapping(address => uint256) public universityProfessors;
     mapping(address => bool) public isUniversity;
     mapping(address => address) public professorToUniversity;
-    mapping(address => string) public universityNames; // New: Store university names
+    mapping(address => string) public universityNames;
     
     // Voting mappings
     mapping(address => string) public votesMap;
@@ -38,7 +38,9 @@ contract YourContract {
     Status public VOTE_STATUS;
     uint256 public votesNumber;
     uint256 public electionEndBlock;
-    address public universityAddress; // University that started current election
+    address public universityThatStartedElection; // University that started current election
+    address public feeHoldingAddress; // Address holding the election fee
+    uint256 public heldFee; // Amount of fee being held
     string public WINNER;
     
     // University list
@@ -47,21 +49,22 @@ contract YourContract {
 
     // ============ EVENTS ============
     
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event PresidentChanged(address indexed previousPresident, address indexed newPresident);
     event UniversityAdded(address indexed university, string name);
     event UniversityRemoved(address indexed university, string name);
     event UniversityVoted(address indexed university, string voteHash);
     event ProfessorEnrolled(address indexed professor, address indexed university, uint256 totalProfessors, uint256 feePaid);
     event ProfessorRemoved(address indexed professor, address indexed university, uint256 totalProfessors);
     event StatusChanged(Status newStatus);
-    event ElectionStarted(address indexed university, uint256 electionEndBlock);
+    event ElectionStarted(address indexed university, uint256 electionEndBlock, uint256 feeHeld);
     event ElectionClosed(string winner, uint256 totalVotes);
     event FeeReceived(address indexed from, address indexed to, uint256 amount);
+    event FeeReturned(address indexed to, uint256 amount);
 
     // ============ MODIFIERS ============
     
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this function");
+    modifier onlyCurrentPresident() {
+        require(msg.sender == currentPresident, "Only current president can call this function");
         _;
     }
     
@@ -78,11 +81,6 @@ contract YourContract {
 
     modifier onlyUniversities() {
         require(isUniversity[msg.sender], "Sender is not a recognized university");
-        _;
-    }
-
-    modifier onlyUniversitiesOrOwner() {
-        require(isUniversity[msg.sender] || msg.sender == owner, "Sender is not a recognized university or owner");
         _;
     }
 
@@ -104,59 +102,50 @@ contract YourContract {
     // ============ CONSTRUCTOR ============
     
     constructor() {
-        owner = msg.sender;
+        // No initial president - will be the deployer
+        currentPresident = msg.sender;
         VOTE_STATUS = Status.NO_ELECTION;
         votesNumber = 0;
         univNumber = 0;
-        
-        emit OwnershipTransferred(address(0), msg.sender);
+        heldFee = 0;
+
+        emit PresidentChanged(address(0), currentPresident);
     }
 
-    // ============ OWNER MANAGEMENT FUNCTIONS ============
+    // ============ PRESIDENT MANAGEMENT FUNCTIONS ============
     
     /**
-     * @dev Transfer ownership to a new address
-     * @param newOwner The address of the new owner
-     */
-    function transferOwnership(address newOwner) external onlyOwner validAddress(newOwner) {
-        require(newOwner != owner, "New owner must be different from current owner");
-        address oldOwner = owner;
-        owner = newOwner;
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-
-    /**
-     * @dev Add a new university to the system
+     * @dev Add a new university to the system (only current president)
      * @param university The address of the university
      * @param name The name of the university
      */
     function addUniversity(address university, string memory name) 
         external 
-        onlyOwner 
+        onlyCurrentPresident 
         onlyWhenNoElection 
         validAddress(university) 
     {
         require(!isUniversity[university], "University already exists");
         require(bytes(name).length > 0, "University name cannot be empty");
         require(bytes(name).length <= 100, "University name too long");
-        require(university != owner, "Owner cannot be a university");
+        require(university != currentPresident, "President cannot be a university");
 
         universities.push(university);
         isUniversity[university] = true;
         universityNames[university] = name;
-        universityProfessors[university] = 0; // Start with 0 professors
+        universityProfessors[university] = 0;
         univNumber = universities.length;
 
         emit UniversityAdded(university, name);
     }
 
     /**
-     * @dev Remove a university from the system
+     * @dev Remove a university from the system (only current president)
      * @param university The address of the university to remove
      */
     function removeUniversity(address university) 
         external 
-        onlyOwner 
+        onlyCurrentPresident 
         onlyWhenNoElection 
         validAddress(university) 
     {
@@ -166,7 +155,6 @@ contract YourContract {
         // Find and remove university from array
         for (uint256 i = 0; i < universities.length; i++) {
             if (universities[i] == university) {
-                // Move last element to current position and pop
                 universities[i] = universities[universities.length - 1];
                 universities.pop();
                 break;
@@ -244,33 +232,27 @@ contract YourContract {
     // ============ ELECTION FUNCTIONS ============
     
     /**
-     * @dev Start a new election (can be called by universities or owner)
+     * @dev Start a new election (can be called by any university with fee)
      */
-    function startVotation() external payable onlyWhenNoElection onlyUniversitiesOrOwner nonReentrant {
+    function startVotation() external payable onlyWhenNoElection onlyUniversities nonReentrant {
         require(univNumber > 0, "No universities registered");
+        require(msg.value >= ELECTION_START_FEE, "Insufficient election start fee");
         
-        // Owner doesn't need to pay fee, universities do
-        if (msg.sender != owner) {
-            require(msg.value >= ELECTION_START_FEE, "Insufficient election start fee");
-            
-            // Refund excess payment
-            uint256 refund = msg.value - ELECTION_START_FEE;
-            if (refund > 0) {
-                (bool refundSuccess, ) = payable(msg.sender).call{value: refund}("");
-                require(refundSuccess, "Refund failed");
-            }
-        } else {
-            // If owner calls and sends value, refund it all
-            if (msg.value > 0) {
-                (bool refundSuccess, ) = payable(msg.sender).call{value: msg.value}("");
-                require(refundSuccess, "Refund failed");
-            }
+        // Store fee information
+        uint256 refund = msg.value - ELECTION_START_FEE;
+        heldFee = ELECTION_START_FEE;
+        feeHoldingAddress = address(this);
+        universityThatStartedElection = msg.sender;
+        
+        // Refund excess payment
+        if (refund > 0) {
+            (bool refundSuccess, ) = payable(msg.sender).call{value: refund}("");
+            require(refundSuccess, "Refund failed");
         }
 
         // Set election state
         VOTE_STATUS = Status.IN_PROGRESS;
         electionEndBlock = block.number + ELECTION_DURATION_BLOCKS;
-        universityAddress = msg.sender;
         votesNumber = 0;
 
         // Reset voting state for all universities
@@ -279,7 +261,7 @@ contract YourContract {
             votesMap[universities[i]] = "";
         }
 
-        emit ElectionStarted(msg.sender, electionEndBlock);
+        emit ElectionStarted(msg.sender, electionEndBlock, heldFee);
         emit StatusChanged(VOTE_STATUS);
     }
 
@@ -290,7 +272,7 @@ contract YourContract {
     function vote(string memory voteData) external onlyDuringElection onlyUniversities {
         require(!hasVoted[msg.sender], "University has already voted");
         require(bytes(voteData).length > 0, "Vote data cannot be empty");
-        require(bytes(voteData).length <= 1000, "Vote data too large"); // Prevent gas issues
+        require(bytes(voteData).length <= 1000, "Vote data too large");
 
         // Mark university as voted and store vote
         hasVoted[msg.sender] = true;
@@ -320,18 +302,6 @@ contract YourContract {
             if (shouldClose) {
                 VOTE_STATUS = Status.CLOSED;
                 emit StatusChanged(VOTE_STATUS);
-
-                // Check quorum and handle fee refund if needed
-                uint256 quorumRequired = (univNumber * QUORUM_PERCENTAGE) / 100;
-                if (votesNumber < quorumRequired && universityAddress != address(0) && universityAddress != owner) {
-                    // Refund election start fee if quorum not met (only if started by university, not owner)
-                    (bool success, ) = payable(universityAddress).call{value: ELECTION_START_FEE}("");
-                    // Note: We don't require success here to prevent blocking the election closure
-                    if (!success) {
-                        // Log the failed refund but don't revert
-                        emit FeeReceived(address(this), universityAddress, 0); // 0 indicates failed refund
-                    }
-                }
             }
         }
     }
@@ -348,11 +318,35 @@ contract YourContract {
         WINNER = winningVote;
         uint256 totalVotes = votesNumber;
 
+        // Return fee to university that started election
+        if (heldFee > 0 && universityThatStartedElection != address(0)) {
+            uint256 feeToReturn = heldFee;
+            address recipient = universityThatStartedElection;
+            
+            // Reset fee tracking
+            heldFee = 0;
+            feeHoldingAddress = address(0);
+            
+            // Transfer fee back
+            (bool success, ) = payable(recipient).call{value: feeToReturn}("");
+            if (success) {
+                emit FeeReturned(recipient, feeToReturn);
+            }
+        }
+
+        // Set new president based on election winner
+        // In a real implementation, you'd parse winningVote to determine the new president
+        // For simplicity, we'll set the university that started the election as the new president
+        // You can modify this logic based on your specific requirements
+        address newPresident = universityThatStartedElection;
+        address oldPresident = currentPresident;
+        currentPresident = newPresident;
+
         // Reset election state
         VOTE_STATUS = Status.NO_ELECTION;
         votesNumber = 0;
         electionEndBlock = 0;
-        universityAddress = address(0);
+        universityThatStartedElection = address(0);
 
         // Clear voting data
         for (uint256 i = 0; i < universities.length; i++) {
@@ -361,6 +355,7 @@ contract YourContract {
         }
 
         emit ElectionClosed(winningVote, totalVotes);
+        emit PresidentChanged(oldPresident, newPresident);
         emit StatusChanged(VOTE_STATUS);
     }
 
@@ -455,24 +450,22 @@ contract YourContract {
     }
 
     /**
-     * @dev Check if an address is the owner
+     * @dev Check if an address is the current president
      * @param account The address to check
-     * @return True if the address is the owner
+     * @return True if the address is the current president
      */
-    function isOwner(address account) external view returns (bool) {
-        return account == owner;
+    function isCurrentPresident(address account) external view returns (bool) {
+        return account == currentPresident;
     }
 
-    // ============ EMERGENCY FUNCTIONS ============
-    
     /**
-     * @dev Emergency function to withdraw stuck funds (only owner)
+     * @dev Get held fee information
+     * @return amount Amount of fee being held
+     * @return holder Address holding the fee
+     * @return starter University that started the election
      */
-    function emergencyWithdraw() external onlyOwner onlyWhenNoElection {
-        require(address(this).balance > 0, "No funds to withdraw");
-        
-        (bool success, ) = payable(owner).call{value: address(this).balance}("");
-        require(success, "Emergency withdrawal failed");
+    function getHeldFeeInfo() external view returns (uint256 amount, address holder, address starter) {
+        return (heldFee, feeHoldingAddress, universityThatStartedElection);
     }
 
     // ============ FALLBACK FUNCTIONS ============
