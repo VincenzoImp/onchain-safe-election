@@ -1,17 +1,8 @@
-# 🗳️ University Election DApp
-
-<h4 align="center">
-  <a href="#features">Features</a> |
-  <a href="#architecture">Architecture</a> |
-  <a href="#getting-started">Getting Started</a> |
-  <a href="#usage">Usage</a>
-</h4>
+# 🗳️ On-Chain Safe Election
 
 🎓 A decentralized application (DApp) for managing university elections and professor enrollment built on Ethereum blockchain. This system enables universities to participate in transparent, secure elections while managing professor enrollments with smart contract-enforced rules.
 
 ⚡ Built on **Scaffold-ETH 2** framework using Next.js, RainbowKit, Hardhat, Wagmi, Viem, and TypeScript.
-
-![University Election DApp](https://github.com/scaffold-eth/scaffold-eth-2/assets/55535804/b237af0c-5027-4849-a5c1-2e31495cccb1)
 
 ## 🌟 Features
 
