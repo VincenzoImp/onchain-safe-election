@@ -102,13 +102,12 @@ contract YourContract {
     // ============ CONSTRUCTOR ============
     
     constructor() {
-        // No initial president - will be the deployer
-        currentPresident = msg.sender;
         VOTE_STATUS = Status.NO_ELECTION;
         votesNumber = 0;
         univNumber = 0;
         heldFee = 0;
-
+        currentPresident = msg.sender;
+        
         emit PresidentChanged(address(0), currentPresident);
     }
 
